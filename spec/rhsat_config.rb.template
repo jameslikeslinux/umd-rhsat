@@ -1,0 +1,4 @@
+RHSAT_HOST     = 'rhsat.umd.edu'
+RHSAT_PATH     = '/rpc/api'
+RHSAT_USERNAME = 'simsuser'
+RHSAT_PASSWORD = 'SET PASSWORD HERE'
