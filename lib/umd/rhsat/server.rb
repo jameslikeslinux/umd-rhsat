@@ -1,28 +1,30 @@
+require 'logging'
+require 'umd/rhsat'
 require 'umd/rhsat/transaction'
 require 'xmlrpc/client'
-require 'logging'
 
 class Umd::Rhsat::Server
     # @param host [String] the hostname of the Red Hat Network Satellite server
     # @param path [String] the path to the XML-RPC endpoint, like '/xml/rpc'
-    # @param (see #login)
+    # @param username [String] the name of an existing privileged user
+    # @param password [String] the password for the user
     def initialize(host, path, username, password)
         @log = Logging.logger[self]
         @client = XMLRPC::Client.new(host, path)
-        login(username, password)
+        @username = username
+        @password = password
+        login
     end
 
     # Start an API session with the Red Hat Network Satellite server
     #
-    # @param username [String] the name of an existing privileged user
-    # @param password [String] the password for the user
     # @raise [XMLRPC::FaultException]
     #   if an API failure is returned from the server
-    def login(username, password)
+    def login
         logout if @session
 
         # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/AuthHandler.html#login
-        @session = @client.call('auth.login', username, password)
+        @session = @client.call('auth.login', @username, @password)
     end
 
     # End an API session with the Red Hat Network Satellite server

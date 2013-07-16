@@ -2,10 +2,6 @@ require 'spec_helper'
 require 'rhsat_config'
 require 'umd/rhsat/server'
 
-RSpec.configure do |c|
-    c.fail_fast = true
-end
-
 describe Umd::Rhsat::Server do
     it 'can connect to the server and log in' do
         server = Umd::Rhsat::Server.new(RHSAT_HOST, RHSAT_PATH, RHSAT_USERNAME, RHSAT_PASSWORD)

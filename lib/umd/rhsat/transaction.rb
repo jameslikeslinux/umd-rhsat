@@ -1,3 +1,5 @@
+require 'umd/rhsat'
+
 # This class implements a generic transaction model.  A transaction
 # consists of a commit callback and a rollback callback.  Additionally,
 # transactions can be nested.  If a commit callback raises a
