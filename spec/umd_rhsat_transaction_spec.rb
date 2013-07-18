@@ -193,7 +193,7 @@ describe Umd::Rhsat::Transaction do
         sequence.should eql([1, 2])
     end
 
-    context 'undoing transactions' do   
+    describe 'undoing transactions' do   
         before(:each) do
             @sequence = []
 

@@ -19,6 +19,7 @@ require 'umd/rhsat'
 #           end
 #       end)
 #   end.commit
+#
 # @author James T. Lee <jtl@umd.edu>
 class Umd::Rhsat::Transaction
 

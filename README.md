@@ -1,29 +1,28 @@
-# Umd::Rhsat
+# RHN Satellite Ruby Library #
 
-TODO: Write a gem description
+This library currently implements an API interface to a Red Hat Network Satellite server.
 
-## Installation
+## Usage ##
 
-Add this line to your application's Gemfile:
+See {Umd::Rhsat::Server}.
 
-    gem 'umd-rhsat'
+## Contributing ##
 
-And then execute:
+1. Fork it: `git clone /cell_root/project/glue/r/ruby/modules/umd-rhsat/src/umd-rhsat.git && cd umd-rhsat`
 
-    $ bundle
+2. Install dependencies: `bundle install --path $HOME/.gem`.  The gem uses
+[Bundler](http://bundler.io/) to manage dependencies. If you've never worked
+with gems in your home directory before, you'll probably have to add
+`$HOME/.gem/ruby/<ruby_lib_version>/bin` to your path. 
 
-Or install it yourself as:
+3. Create your feature branch (`git checkout -b my-new-feature`).
 
-    $ gem install umd-rhsat
+4. Write tests and run them with:
+`bundle exec rspec --format documentation spec`.
+More importantly, make sure the tests pass.
 
-## Usage
+5. Commit your changes (`git commit -a -m 'Add some feature'`).
 
-TODO: Write usage instructions here
+6. Push the branch (`git push origin my-new-feature`).
 
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+7. Create a pull request.
