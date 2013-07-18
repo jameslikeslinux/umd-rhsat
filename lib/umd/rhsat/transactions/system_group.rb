@@ -166,4 +166,57 @@ module Umd::Rhsat::Transactions::SystemGroup
             t.add_subtransaction(create(server, new_name, server.get_system_group_properties(old_name)))
         end)
     end
+
+    # Generate a transaction to change a system group's properties
+    #
+    # @param server [Umd::Rhsat::Server] the Satellite on which to operate
+    # @param name [String] the name of the system group
+    # @param description [String] a description to give to the system group
+    # @param admins [Array<String>] a list of users who can view and manage the system group
+    # @return [Umd::Rhsat::Transaction] the initialized transaction
+    def self.change(server, name, description, admins)
+        old_properties = server.get_system_group_properties(name)
+
+        # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#listUsers
+        all_users = server.call('user.listUsers').collect { |user| user['login'] }
+
+        Umd::Rhsat::Transaction.new do |t|
+            # remove users who are no longer listed as admins
+            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
+                st.on_commit do
+                    # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
+                    server.call('systemgroup.addOrRemoveAdmins', name, (old_properties['admins'] - admins) & all_users, 0)
+                end
+
+                st.on_rollback do
+                    # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
+                    server.call('systemgroup.addOrRemoveAdmins', name, (old_properties['admins'] - admins) & all_users, 1)
+                end
+            end)
+
+            # add users who are newly listed as admins
+            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
+                st.on_commit do
+                    # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
+                    server.call('systemgroup.addOrRemoveAdmins', name, (admins - old_properties['admins']) & all_users, 1)
+                end
+
+                st.on_rollback do
+                    # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
+                    server.call('systemgroup.addOrRemoveAdmins', name, (admins - old_properties['admins']) & all_users, 0)
+                end
+            end)
+
+            # update the system group properties
+            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
+                st.on_commit do
+                    server.set_system_group_properties(name, 'description' => description, 'admins' => admins)
+                end
+
+                st.on_rollback do
+                    server.set_system_group_properties(name, old_properties)
+                end
+            end)
+        end
+    end
 end

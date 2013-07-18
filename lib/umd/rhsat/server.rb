@@ -168,6 +168,17 @@ class Umd::Rhsat::Server
         Umd::Rhsat::Transactions::SystemGroup.rename(self, old_name, new_name).commit
     end
 
+    # Change a system group's properties
+    #
+    # @param name [String] the name of the system group
+    # @param description [String] a description to give to the system group
+    # @param admins [Array<String>] a list of users who can view and manage the system group
+    # @raise [Umd::Rhsat::Transaction::TransactionError]
+    #   if an API failure is returned from the server
+    def change_system_group(name, description, admins)
+        Umd::Rhsat::Transactions::SystemGroup.change(self, name, description, admins).commit
+    end
+
     # Change an activation key.  It does this by deleting the old
     # activation key and creating a new one.  This assumes that the
     # corresponding system group exists.

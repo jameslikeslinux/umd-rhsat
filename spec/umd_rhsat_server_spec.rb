@@ -354,6 +354,56 @@ describe Umd::Rhsat::Server do
             @server.set_system_group_properties('testgroup', 'foo' => 'bar', 'description' => 'A New Description')
             @server.get_system_group_properties('testgroup').should eql({'description' => 'A New Description', 'activation_key' => '1-testgroup', 'admins' => ['testuser1', 'testuser2', 'anonexistentuser'], 'default' => false, 'enabled' => true, 'foo' => 'bar'})
         end
+
+        it 'can change the description' do
+            @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1', 'testuser2', 'anonexistentuser'])
+            @server.change_system_group('testgroup', 'New System Group Name', ['testuser1', 'testuser2', 'anonexistentuser'])
+            @server.get_system_group_properties('testgroup')['description'].should eql('New System Group Name')
+        end
+
+        it 'can add admins' do
+            @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1'])
+            @server.change_system_group('testgroup', 'A Test System Group', ['testuser1', 'testuser2', 'anonexistentuser'])
+
+            # check that the description got updated
+            @server.get_system_group_properties('testgroup')['admins'].should eql(['testuser1', 'testuser2', 'anonexistentuser'])
+
+            # check that the group has the right admins 
+            admins = @server.call('systemgroup.listAdministrators', 'testgroup').collect { |user| user['login'] }
+            admins.should include('testuser1', 'testuser2')
+            admins.should_not include('anonexistentuser')
+        end
+
+        it 'can remove admins' do
+            @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1', 'testuser2', 'anonexistentuser'])
+            @server.change_system_group('testgroup', 'A Test System Group', ['testuser1'])
+
+            # check that the description got updated
+            @server.get_system_group_properties('testgroup')['admins'].should eql(['testuser1'])
+
+            # check that the group has the right admins 
+            admins = @server.call('systemgroup.listAdministrators', 'testgroup').collect { |user| user['login'] }
+            admins.should include('testuser1')
+            admins.should_not include('testuser2', 'anonexistentuser')
+        end
+
+        it 'can add and remove admins at the same time' do
+            @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1', 'testuser2', 'anonexistentuser'])
+            @server.change_system_group('testgroup', 'A Test System Group', ['testuser1', 'testuser3'])
+
+            # check that the description got updated
+            @server.get_system_group_properties('testgroup')['admins'].should eql(['testuser1', 'testuser3'])
+
+            # check that the group has the right admins 
+            admins = @server.call('systemgroup.listAdministrators', 'testgroup').collect { |user| user['login'] }
+            admins.should include('testuser1', 'testuser3')
+            admins.should_not include('testuser2', 'anonexistentuser')
+        end
+
+        it 'can keep things exactly the same' do
+            @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1', 'testuser2', 'anonexistentuser'])
+            @server.change_system_group('testgroup', 'A Test System Group', ['testuser1', 'testuser2', 'anonexistentuser'])
+        end
     end
     
     describe 'activation key management' do
