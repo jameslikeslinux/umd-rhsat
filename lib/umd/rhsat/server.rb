@@ -1,9 +1,9 @@
 require 'json'
-require 'logging'
 require 'umd/rhsat'
 require 'umd/rhsat/transactions/activation_key'
 require 'umd/rhsat/transactions/system_group'
 require 'umd/rhsat/transactions/user'
+require 'umd/util/logging'
 require 'xmlrpc/client'
 
 # Connect to and perform API calls against a Red Hat Network Satellite
@@ -23,6 +23,8 @@ require 'xmlrpc/client'
 # @!attribute path [r] The path to the XML-RPC endpoint, like '/rpc/api'
 # @!attribute username [r] The username used to log in to the server
 class Umd::Rhsat::Server
+    include Umd::Util::Logging
+
     attr_reader :host, :path, :username
 
     # @param host [String] the hostname of the Red Hat Network Satellite server
@@ -30,7 +32,6 @@ class Umd::Rhsat::Server
     # @param username [String] the name of an existing privileged user
     # @param password [String] the password for the user
     def initialize(host, path, username, password)
-        @log = Logging.logger[self]
         @host = host
         @path = path
         @username = username
@@ -200,7 +201,7 @@ class Umd::Rhsat::Server
     # @see https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/index.html Red Hat Network Satellite API Documentation
     def call(method, *args)
         raise 'not logged in' unless @session
-        @log.debug "calling #{method} #{args}"
+        log.debug "calling #{method} #{args}"
         @client.call(method, @session, *args)
     end
 

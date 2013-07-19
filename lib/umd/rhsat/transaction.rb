@@ -1,4 +1,5 @@
 require 'umd/rhsat'
+require 'umd/util/logging'
 
 # This class implements a generic transaction model.  A transaction
 # consists of a commit callback and a rollback callback.  Additionally,
@@ -22,6 +23,7 @@ require 'umd/rhsat'
 #
 # @author James T. Lee <jtl@umd.edu>
 class Umd::Rhsat::Transaction
+    include Umd::Util::Logging
 
     # Since code is executed after errors in the commit phase
     # this error type is required to capture ary errors that might
@@ -52,7 +54,6 @@ class Umd::Rhsat::Transaction
 
     
     def initialize
-        @log = Logging.logger[self]
         @commit_callback = nil
         @rollback_callback = nil
         @subtransactions = []
@@ -75,13 +76,13 @@ class Umd::Rhsat::Transaction
                     t.commit
                     completed_transactions.unshift(t)
                 rescue => e
-                    @log.debug e
+                    log.debug e
 
                     completed_transactions.each do |ct|
                         begin
                             ct.rollback
                         rescue => f
-                            @log.debug f
+                            log.debug f
                             raise TransactionError.new(e, f)
                         end
                     end
@@ -105,7 +106,7 @@ class Umd::Rhsat::Transaction
                 begin
                     t.rollback
                 rescue => e
-                    @log.debug e
+                    log.debug e
                     raise TransactionError.new(nil, e)
                 end
             end
