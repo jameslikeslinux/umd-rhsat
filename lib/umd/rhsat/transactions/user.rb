@@ -19,13 +19,13 @@ module Umd::Rhsat::Transactions::User
     # @param activation_key [String] an activation key in the format /^1-\\w+$/
     # @return [Umd::Rhsat::Transaction] the initialized transaction
     def self.create(server, username, first_name, last_name, email, activation_key)
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # create the user's private system group
-            t.add_subtransaction(Umd::Rhsat::Transactions::SystemGroup.create(server, username, 'description' => "Private System Group for #{username}", 'activation_key' => activation_key, 'admins' => [username], 'default' => true))
+            subtransaction Umd::Rhsat::Transactions::SystemGroup.create(server, username, 'description' => "Private System Group for #{username}", 'activation_key' => activation_key, 'admins' => [username], 'default' => true)
 
             # create the user and add it to any system groups for which it is already configured to be an admin of
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#create
                     server.call('user.create', username, '', first_name, last_name, email, 1)
          
@@ -40,11 +40,11 @@ module Umd::Rhsat::Transactions::User
                     end
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#delete
                     server.call('user.delete', username)
                 end
-            end)
+            end
         end
     end
 
@@ -69,22 +69,22 @@ module Umd::Rhsat::Transactions::User
     #   like 'jtl@umd.edu'
     # @return [Umd::Rhsat::Transaction] the initialized transaction
     def self.disable(server, username)
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # disable the user
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#disable
                     server.call('user.disable', username)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#enable
                     server.call('user.enable', username)
                 end
-            end)
+            end
 
             # disable the user's system group and activation key
-            t.add_subtransaction(Umd::Rhsat::Transactions::SystemGroup.disable(server, username))
+            subtransaction Umd::Rhsat::Transactions::SystemGroup.disable(server, username)
         end
     end
 
@@ -112,12 +112,12 @@ module Umd::Rhsat::Transactions::User
     def self.rename(server, old_username, new_username, new_email)
         user = server.call('user.getDetails', old_username)
 
-        Umd::Rhsat::Transactions::SystemGroup.preserve_and_rename(server, old_username, new_username, Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transactions::SystemGroup.preserve_and_rename(server, old_username, new_username, Umd::Rhsat::Transaction.new do
             # delete old user
-            t.add_subtransaction(delete(server, old_username))
+            subtransaction Umd::Rhsat::Transactions::User.delete(server, old_username)
 
             # create new user
-            t.add_subtransaction(create(server, new_username, user['first_name'], user['last_name'], new_email, server.get_activation_key(old_username)))
+            subtransaction Umd::Rhsat::Transactions::User.create(server, new_username, user['first_name'], user['last_name'], new_email, server.get_activation_key(old_username))
         end)
     end
 end

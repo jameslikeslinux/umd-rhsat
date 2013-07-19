@@ -14,26 +14,26 @@ module Umd::Rhsat::Transactions::SystemGroup
     # @param properties [Hash{String => Object}] properties to store in the system group's description field
     # @return [Umd::Rhsat::Transaction] the initialized transaction
     def self.create(server, name, properties)
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # create the system group
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#create
                     systemgroup = server.call('systemgroup.create', name, '{}')
                     server.set_system_group_properties(name, properties)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#delete
                     server.call('systemgroup.delete', name)
                 end
-            end)
+            end
 
             # create the activation key
-            t.add_subtransaction(Umd::Rhsat::Transactions::ActivationKey.create(server, name, properties['activation_key']))
+            subtransaction Umd::Rhsat::Transactions::ActivationKey.create(server, name, properties['activation_key'])
 
             # enable the system group
-            t.add_subtransaction(enable(server, name))
+            subtransaction Umd::Rhsat::Transactions::SystemGroup.enable(server, name)
         end
     end
 
@@ -54,10 +54,10 @@ module Umd::Rhsat::Transactions::SystemGroup
     # @param name [String] the name of the system group to disable
     # @return [Umd::Rhsat::Transaction] the initialized transaction
     def self.disable(server, name)
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # remove users from group
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     properties = server.get_system_group_properties(name)
 
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#listUsers
@@ -67,7 +67,7 @@ module Umd::Rhsat::Transactions::SystemGroup
                     server.call('systemgroup.addOrRemoveAdmins', name, properties['admins'] & all_users, 0)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     properties = server.get_system_group_properties(name)
 
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#listUsers
@@ -76,21 +76,21 @@ module Umd::Rhsat::Transactions::SystemGroup
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
                     server.call('systemgroup.addOrRemoveAdmins', name, properties['admins'] & all_users, 1)
                 end
-            end)
+            end
 
             # disable activation key
-            t.add_subtransaction(Umd::Rhsat::Transactions::ActivationKey.disable(server, name))
+            subtransaction Umd::Rhsat::Transactions::ActivationKey.disable(server, name)
 
             # mark group as disabled
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     server.set_system_group_properties(name, 'enabled' => false)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     server.set_system_group_properties(name, 'enabled' => true)
                 end
-            end)
+            end
         end
     end
 
@@ -116,35 +116,35 @@ module Umd::Rhsat::Transactions::SystemGroup
         # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#listSystems
         system_ids = server.call('systemgroup.listSystems', old_name).collect { |system| system['id'] }
         
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # remove systems from old system group
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveSystems
                     server.call('systemgroup.addOrRemoveSystems', old_name, system_ids, false)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveSystems
                     server.call('systemgroup.addOrRemoveSystems', old_name, system_ids, true)
                 end
-            end)
+            end
 
             # do the rename
-            t.add_subtransaction(rename_transaction)
+            subtransaction rename_transaction
 
             # add systems into new system group
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveSystems
                     server.call('systemgroup.addOrRemoveSystems', new_name, system_ids, true)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveSystems
                     server.call('systemgroup.addOrRemoveSystems', new_name, system_ids, false)
                 end
-            end)
+            end
         end
     end
 
@@ -158,12 +158,12 @@ module Umd::Rhsat::Transactions::SystemGroup
     # @param new_name [String] the new system group name
     # @return [Umd::Rhsat::Transaction] the initialized transaction
     def self.rename(server, old_name, new_name)
-        preserve_and_rename(server, old_name, new_name, Umd::Rhsat::Transaction.new do |t|
+        preserve_and_rename(server, old_name, new_name, Umd::Rhsat::Transaction.new do
             # delete old system group
-            t.add_subtransaction(delete(server, old_name))
+            subtransaction Umd::Rhsat::Transactions::SystemGroup.delete(server, old_name)
 
             # create new system group
-            t.add_subtransaction(create(server, new_name, server.get_system_group_properties(old_name)))
+            subtransaction Umd::Rhsat::Transactions::SystemGroup.create(server, new_name, server.get_system_group_properties(old_name))
         end)
     end
 
@@ -180,43 +180,43 @@ module Umd::Rhsat::Transactions::SystemGroup
         # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/UserHandler.html#listUsers
         all_users = server.call('user.listUsers').collect { |user| user['login'] }
 
-        Umd::Rhsat::Transaction.new do |t|
+        Umd::Rhsat::Transaction.new do
             # remove users who are no longer listed as admins
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
                     server.call('systemgroup.addOrRemoveAdmins', name, (old_properties['admins'] - admins) & all_users, 0)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
                     server.call('systemgroup.addOrRemoveAdmins', name, (old_properties['admins'] - admins) & all_users, 1)
                 end
-            end)
+            end
 
             # add users who are newly listed as admins
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
                     server.call('systemgroup.addOrRemoveAdmins', name, (admins - old_properties['admins']) & all_users, 1)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     # https://access.redhat.com/site/documentation/en-US/Red_Hat_Network_Satellite/5.5/html/API_Overview/files/html/handlers/ServerGroupHandler.html#addOrRemoveAdmins
                     server.call('systemgroup.addOrRemoveAdmins', name, (admins - old_properties['admins']) & all_users, 0)
                 end
-            end)
+            end
 
             # update the system group properties
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            subtransaction do
+                on_commit do
                     server.set_system_group_properties(name, 'description' => description, 'admins' => admins)
                 end
 
-                st.on_rollback do
+                on_rollback do
                     server.set_system_group_properties(name, old_properties)
                 end
-            end)
+            end
         end
     end
 end

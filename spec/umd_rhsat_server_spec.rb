@@ -38,11 +38,11 @@ describe Umd::Rhsat::Server do
 
         it 'handles transaction failures' do
             t = Umd::Rhsat::Transactions::User.create(@server, 'testuser', 'Test', 'User', 'testuser@foo.bar', '1-12345')
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            t.subtransaction do
+                on_commit do
                     raise 'foobar'
                 end
-            end)
+            end
 
             expect { t.commit }.to raise_error(/foobar/)
 
@@ -133,11 +133,11 @@ describe Umd::Rhsat::Server do
         it 'can handle rename failures' do
             @server.create_user('testuser', 'Test', 'User', 'testuser@foo.bar', '1-12345')
             t = Umd::Rhsat::Transactions::User.rename(@server, 'testuser', 'newusername', 'newusername@foo.bar')
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            t.subtransaction do 
+                on_commit do
                     raise 'foobar'
                 end
-            end)
+            end
 
             expect { t.commit }.to raise_error(/foobar/)
 
@@ -198,11 +198,11 @@ describe Umd::Rhsat::Server do
 
         it 'handles transaction failures' do
             t = Umd::Rhsat::Transactions::SystemGroup.create(@server, 'testgroup', 'description' => 'A Test System Group', 'activation_key' => '1-testgroup', 'admins' => ['testuser1', 'testuser2', 'anonexistentuser'], 'default' => false)
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            t.subtransaction do
+                on_commit do
                     raise 'foobar'
                 end
-            end)
+            end
 
             expect { t.commit }.to raise_error(/foobar/)
 
@@ -322,11 +322,11 @@ describe Umd::Rhsat::Server do
         it 'can handle rename failures' do
             @server.create_system_group('testgroup', 'A Test System Group', '1-testgroup', ['testuser1', 'testuser2', 'anonexistentuser'])
             t = Umd::Rhsat::Transactions::SystemGroup.rename(@server, 'testgroup', 'newgroup')
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            t.subtransaction do
+                on_commit do
                     raise 'foobar'
                 end
-            end)
+            end
 
             expect { t.commit }.to raise_error(/foobar/)
 
@@ -433,11 +433,11 @@ describe Umd::Rhsat::Server do
 
         it 'handles transaction failures' do
             t = Umd::Rhsat::Transactions::ActivationKey.change(@server, 'testgroup', '1-anewkey')
-            t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-                st.on_commit do
+            t.subtransaction do
+                on_commit do
                     raise 'foobar'
                 end
-            end)
+            end
 
             expect { t.commit }.to raise_error(/foobar/)
 

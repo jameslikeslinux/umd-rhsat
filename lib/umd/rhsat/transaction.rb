@@ -8,17 +8,22 @@ require 'umd/util/logging'
 # transactions committed before it will be rolled back.
 #
 # @example
-#   Umd::Rhsat::Transaction.new do |t|
-#       t.add_subtransaction(Umd::Rhsat::Transaction.new do |st|
-#           st.on_commit do
-#               puts "committing"
-#               raise "error"
+#   Umd::Rhsat::Transaction.new do
+#       subtransaction do
+#           on_commit do
+#               puts 'committing'
 #           end
 #
-#           st.on_rollback do
-#               puts "rolling back"
+#           on_rollback do
+#               puts 'rolling back'
 #           end
-#       end)
+#       end
+#
+#       subtransaction do
+#           on_commit do
+#               raise 'transaction failure'
+#           end
+#       end
 #   end.commit
 #
 # @author James T. Lee <jtl@umd.edu>
@@ -52,12 +57,14 @@ class Umd::Rhsat::Transaction
         end
     end
 
-    
-    def initialize
+   
+    # @yield nothing 
+    def initialize(&init)
         @commit_callback = nil
         @rollback_callback = nil
         @subtransactions = []
-        yield self if block_given?
+
+        instance_eval(&init)
     end    
 
     # Commit the transaction.  Subtransactions are iterated and executed
@@ -117,7 +124,7 @@ class Umd::Rhsat::Transaction
     # If this is set, then the transaction will execute it and not
     # any subtransactions.
     #
-    # @param code [block] the code to be executed during transaction commit
+    # @yield nothing
     def on_commit(&code)
         @commit_callback = code
     end
@@ -126,7 +133,7 @@ class Umd::Rhsat::Transaction
     # If this is set, then the transaction will execute it and not
     # any subtransactions.
     #
-    # @param code [block] the code to be executed during transaction rollback
+    # @yield nothing
     def on_rollback(&code)
         @rollback_callback = code
     end
@@ -136,9 +143,34 @@ class Umd::Rhsat::Transaction
     # with #on_commit or #on_rollback, then these will not be
     # considered.
     #
-    # @param t [Umd::Rhsat::Transaction] a subtransaction
-    def add_subtransaction(t)
-        @subtransactions.push(t)
+    # @example creating a new subtransaction with a block
+    #   Umd::Rhsat::Transaction.new do
+    #       subtransaction do
+    #           on_commit do
+    #               puts 'foo'
+    #           end
+    #       end
+    #   end
+    #
+    # @example creating a new subtransaction by parameter  
+    #   t = Umd::Rhsat::Transaction.new do
+    #       on_commit do
+    #           puts 'foo'
+    #       end
+    #   end
+    #
+    #   Umd::Rhsat::Transaction.new do
+    #       subtransaction t
+    #   end
+    #
+    # @param t [Umd::Rhsat::Transaction] a subtransaction, or nil initialize a new transaction from a block
+    # @yield nothing
+    def subtransaction(t = nil, &init)
+        if t
+            @subtransactions.push(t)
+        else
+            @subtransactions.push(Umd::Rhsat::Transaction.new(&init))
+        end
     end
 
     # Allows a transaction to be undone safely
